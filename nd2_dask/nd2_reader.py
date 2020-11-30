@@ -18,17 +18,7 @@ from napari_plugin_engine import napari_hook_implementation
 import dask
 from vispy.color import Colormap
 
-CHANNEL_COLORS = {
-    "Alxa 647": (1.0, 0.5019607843137255, 1.0),
-    "GaAsP Alexa 568": (1.0, 0.0, 0.0),
-    "GaAsP Alexa 488": (0.0, 1.0, 0.0),
-    "TD": (1, 1, 1)
-}
-VISIBLE = [
-    "Alxa 647",
-    "GaAsP Alexa 568",
-    "GaAsP Alexa 488"
-    ]
+color_maps = ["bop purple", "bop orange", "bop blue", "green", "blue"]
 
 
 def get_metadata(path):
@@ -138,7 +128,8 @@ def nd2_reader(path):
 
 
 def get_layer_list(channels, nd2_func, path, frame_shape, frame_dtype, n_timepoints):
-    channel_dict = dict(zip(channels, [[] for _ in range(len(channels))]))
+    # channel_dict = dict(zip(channels, [[] for _ in range(len(channels))]))
+    channel_dict = {}
     for i, channel in enumerate(channels):
         arr = da.stack(
             [da.from_delayed(delayed(nd2_func(path, i))(j),
@@ -146,20 +137,18 @@ def get_layer_list(channels, nd2_func, path, frame_shape, frame_dtype, n_timepoi
             dtype=frame_dtype)
             for  j in range(n_timepoints)]
             )
-        channel_dict[channel] = dask.optimize(arr)[0]
+        channel_dict[color_maps[i % len(color_maps)]] = dask.optimize(arr)[0]
 
     layer_list = []
+    print("channel_dict", channel_dict)
     for channel_name, channel in channel_dict.items():
-        visible = channel_name in VISIBLE
-        blending = 'additive' if visible else 'translucent'
-        channel_color = list(CHANNEL_COLORS[channel_name])
-        color = Colormap([[0, 0, 0],channel_color])
+        blending = 'additive'
         meta = get_metadata(path)
         add_kwargs = {
             "name": channel_name,
-            "visible": visible,
-            "colormap": color,
-            "blending": blending,
+            "colormap" : channel_name,
+            "blending" : blending,
+            "rendering": "mip",
             **meta
         }
         layer_type = "image"
